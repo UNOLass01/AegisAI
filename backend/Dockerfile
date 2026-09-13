@@ -12,6 +12,8 @@ COPY backend/alembic.ini ./alembic.ini
 COPY backend/alembic ./alembic
 COPY backend/app ./app
 COPY backend/tests ./tests
+# Simulator + observability configs so the image stays self-contained/testable.
+COPY monitoring ./monitoring
 # Model artifacts + reports so /predict and /models work out of the box.
 COPY ml ./ml
 

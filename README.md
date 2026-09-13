@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 2 — ML pipeline live: three versioned fraud models served via `POST /predict`, listed via `GET /models`.
+> Phase 3 — observability live: Prometheus + Grafana + structured JSON logs + incident simulator.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -14,6 +14,24 @@ docker compose up --build
 - Backend: http://localhost:8000 (`GET /health` → `{"status":"ok"}`, docs at `/docs`)
 - Frontend: http://localhost:5173 — shows a green "backend healthy" indicator.
 - Postgres: `localhost:5432` (user/pass/db: `aegis`), migrations run automatically via Alembic.
+- Prometheus: http://localhost:9090 (scrapes `backend:8000/metrics` every 5s)
+- Grafana: http://localhost:3000 (admin/admin, anonymous viewer enabled) — "AegisAI Overview" dashboard
+
+## Simulate an incident
+
+```bash
+docker compose up --build -d
+python monitoring/simulate_incident.py
+```
+
+Phase A replays clean traffic against v1; Phase B replays drifted traffic (+30% amounts)
+against v2 at higher concurrency. Expected output (deterministic seeds):
+
+- Phase A: precision ≈ 0.80, avg latency ≈ 45ms
+- Phase B: precision ≈ 0.52, avg latency ≈ 285ms
+
+Watch Grafana: the model-mix panel flips v1→v2, the precision panel drops, p95 latency jumps.
+Backend logs are structured JSON (timestamp, level, endpoint, model_version, latency_ms, status_code).
 
 ## ML pipeline (fraud detection)
 
