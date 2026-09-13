@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 7 — agent observability live: every investigation records a 7-step trace (timings, tokens, cost) to Postgres, Prometheus, and Grafana.
+> Phase 8 — dashboard live: 6 pages (Overview, Models, Incidents, Investigations, Evaluation, System health) in the instrument-panel/case-file style, verified by 22 browser checks.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -65,6 +65,9 @@ signature (recall −0.25). Reports live in `ml/evaluation/reports/model_<versio
 - `POST /investigate` → `{"query": "Why did fraud detection performance degrade after deployment v2?"}` runs the agent, persists the report, returns it
 - `GET /investigations/{id}/trace` → step-by-step timeline (step, duration_ms, tokens, cost_usd, timestamp) for one investigation
 - `GET /evaluation/latest` → latest harness scorecard (run the harness first)
+- `GET /incidents`, `GET /incidents/{id}` → past incident rows + full markdown write-ups
+- `GET /investigations`, `GET /investigations/{id}` → past investigations list + full report with trace
+- `GET /system/summary` → backend-proxied serving readouts for the Overview page
 
 ## Evaluation harness
 
@@ -149,6 +152,38 @@ pip install --index-url https://download.pytorch.org/whl/cpu torch
 pip install -r backend/requirements-ml.txt
 ```
 
+## Dashboard (Phase 8)
+
+React + Vite at http://localhost:5173, styled per `AEGIS_AI_FRONTEND_DESIGN.md`
+(paper-grey panels, rust reserved for real anomalies, IBM Plex Sans + Mono,
+rows not cards). Pages: **Overview** (live readouts + investigation timeline +
+sparkline), **Models** (expandable rows with compare-to-previous deltas),
+**Incidents** (knowledge-base rows + full markdown write-ups),
+**Investigations** (ask-a-question form, evidence timeline, confidence gauge,
+trace pills), **Evaluation** (scorecard, per-scenario bars, pass/fail table),
+**System health** (live Prometheus charts with a Grafana link).
+
+Seed a demo before clicking around:
+
+```bash
+docker compose up --build -d
+python monitoring/simulate_incident.py
+docker compose exec backend python evaluation/evaluation.py  # fills the Evaluation page
+```
+
+Browser smoke test (requires the stack plus a one-time browser install):
+
+```bash
+cd frontend
+npx playwright install chromium
+npm run e2e
+```
+
+22 checks across all six pages — real data rendering, a full
+ask-to-verdict investigation through the UI, and zero console/page errors.
+System-health charts read Prometheus via `VITE_PROM_URL`
+(default `http://localhost:9090`).
+
 ## Useful commands
 
 | Command | What it does |
@@ -161,7 +196,7 @@ pip install -r backend/requirements-ml.txt
 
 - `backend/` — FastAPI app (`app/api`, `app/agents`, `app/tools`, `app/rag`, `app/services`, `app/models`) + `tests/`
 - `ml/` — training / evaluation / models + data dirs
-- `frontend/` — React (Vite) dashboard (`src/dashboard`, `src/investigations`, `src/components`)
+- `frontend/` — React dashboard: rail shell, 6 pages (`src/pages/`), shared SVG components (`src/components/`), API client (`src/api.js`), Playwright smoke (`e2e/`)
 - `evaluation/` — 18 scenario definitions + harness runner + results
 - `monitoring/` — Prometheus + Grafana configs
 - `knowledge/` — incidents / documentation / experiments (RAG corpus)

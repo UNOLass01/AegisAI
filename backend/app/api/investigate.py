@@ -34,6 +34,37 @@ class InvestigationTrace(BaseModel):
     spans: list[TraceSpan]
 
 
+class InvestigationRow(BaseModel):
+    id: int
+    investigation_id: str | None
+    query: str
+    status: str
+    root_cause: str | None
+    confidence: float | None
+    created_at: str
+    evidence_count: int
+
+
+class InvestigationDetail(InvestigationRow):
+    report: dict | None
+    trace: list[TraceSpan]
+
+
+def _row_to_summary(row: Investigation) -> dict:
+    report = row.report_json or {}
+    evidence = report.get("evidence", []) if isinstance(report, dict) else []
+    return {
+        "id": row.id,
+        "investigation_id": report.get("investigation_id") if isinstance(report, dict) else None,
+        "query": row.query,
+        "status": row.status,
+        "root_cause": row.root_cause,
+        "confidence": row.confidence,
+        "created_at": row.created_at.isoformat() if row.created_at else "",
+        "evidence_count": len(evidence),
+    }
+
+
 @router.post("/investigate", response_model=IncidentReport)
 def investigate(body: InvestigateRequest, db: Session = Depends(get_db)) -> IncidentReport:
     try:
@@ -62,6 +93,39 @@ def investigate(body: InvestigateRequest, db: Session = Depends(get_db)) -> Inci
         ))
     db.commit()
     return report
+
+
+@router.get("/investigations", response_model=list[InvestigationRow])
+def list_investigations(limit: int = 20, db: Session = Depends(get_db)) -> list[dict]:
+    limit = max(1, min(limit, 100))
+    rows = (db.query(Investigation)
+            .order_by(Investigation.id.desc())
+            .limit(limit)
+            .all())
+    return [_row_to_summary(row) for row in rows]
+
+
+@router.get("/investigations/{investigation_id}", response_model=InvestigationDetail)
+def investigation_detail(investigation_id: int,
+                         db: Session = Depends(get_db)) -> dict:
+    row = db.query(Investigation).filter(Investigation.id == investigation_id).first()
+    if row is None:
+        raise HTTPException(status_code=404,
+                            detail=f"unknown investigation {investigation_id!r}")
+    summary = _row_to_summary(row)
+    trace: list[dict] = []
+    hex_id = summary["investigation_id"]
+    if hex_id:
+        trace_rows = (db.query(AgentTrace)
+                      .filter(AgentTrace.investigation_id == hex_id)
+                      .order_by(AgentTrace.timestamp, AgentTrace.id)
+                      .all())
+        trace = [{"step": r.step, "duration_ms": r.duration_ms, "tokens": r.tokens,
+                  "cost_usd": r.cost_usd, "timestamp": r.timestamp.isoformat()}
+                 for r in trace_rows]
+    return {**summary,
+            "report": row.report_json,
+            "trace": trace}
 
 
 @router.get("/investigations/{investigation_id}/trace",

@@ -3,6 +3,8 @@
 - **Date:** 2026-09-02
 - **Severity:** high
 - **Model:** v2 (retrained on drifted data)
+- **Affected:** transaction_amount
+- **Status:** resolved
 - **Symptom:** precision dropped 0.740 → 0.603 after the v2 deployment; the
   review queue filled with false positives (FP 42 → 58 on the held-out set).
 

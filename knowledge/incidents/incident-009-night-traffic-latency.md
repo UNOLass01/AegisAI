@@ -3,6 +3,8 @@
 - **Date:** 2026-08-28
 - **Severity:** medium
 - **Model:** v1 (model was healthy; this was infra, not ML)
+- **Affected:** /predict latency
+- **Status:** resolved
 - **Symptom:** `/predict` p95 latency jumped 0.05s → 0.46s during a traffic
   surge; no 5xx errors, but the Grafana latency panel paged the on-call.
 

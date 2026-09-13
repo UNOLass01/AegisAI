@@ -9,8 +9,10 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.evaluation import router as evaluation_router
 from app.api.health import router as health_router
+from app.api.incidents import router as incidents_router
 from app.api.investigate import router as investigate_router
 from app.api.knowledge import router as knowledge_router
+from app.api.system import router as system_router
 from app.api.predict import router as predict_router
 from app.middleware import RequestLoggingMiddleware
 from app.services.logger import get_logger
@@ -57,6 +59,8 @@ app.include_router(predict_router)
 app.include_router(knowledge_router)
 app.include_router(investigate_router)
 app.include_router(evaluation_router)
+app.include_router(incidents_router)
+app.include_router(system_router)
 
 # Standard HTTP metrics (request count, latency histogram, status codes).
 Instrumentator().instrument(app).expose(app)

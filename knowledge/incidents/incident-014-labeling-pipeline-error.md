@@ -3,6 +3,8 @@
 - **Date:** 2026-09-06
 - **Severity:** high
 - **Model:** v3
+- **Affected:** training labels
+- **Status:** resolved
 - **Symptom:** recall collapsed 0.665 → 0.413 after the v3 deployment; fraud
   slipped through while dashboards still looked "green" on accuracy (0.942).
 
