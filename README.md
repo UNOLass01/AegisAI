@@ -2,16 +2,26 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 0 — repo bootstrap. Full scaffolding lands in Phase 1 (FastAPI + Postgres + React + Docker).
+> Phase 1 — foundation live: FastAPI + Postgres + React dashboard via Docker.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
-## Quickstart (target state, Phase 1+)
+## Quickstart
 
 ```bash
-docker compose up
+docker compose up --build
 ```
 
-Frontend → backend health check → green "backend healthy" indicator.
+- Backend: http://localhost:8000 (`GET /health` → `{"status":"ok"}`, docs at `/docs`)
+- Frontend: http://localhost:5173 — shows a green "backend healthy" indicator.
+- Postgres: `localhost:5432` (user/pass/db: `aegis`), migrations run automatically via Alembic.
+
+## Useful commands
+
+| Command | What it does |
+|---|---|
+| `make up` / `make down` / `make logs` | Start / stop / follow all services |
+| `make test` | Run backend tests (`pytest`) |
+| `make migrate` | Apply DB migrations (`alembic upgrade head`) |
 
 ## Layout
 
