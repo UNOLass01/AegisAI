@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+node_modules/
+dist/
+.env
+ml/models/*.pkl
+ml/evaluation/reports/
+evaluation/results/
+data/
+*.log

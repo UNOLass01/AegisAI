@@ -1,0 +1,5 @@
+# Phase 0 placeholder — full service definitions (backend, frontend, postgres) land in Phase 1.
+services:
+  backend:
+    image: python:3.11-slim
+    command: echo "AegisAI backend placeholder (Phase 1 implements FastAPI)"
