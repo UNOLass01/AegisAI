@@ -8,5 +8,4 @@ dist/
 ml/models/*.pkl
 ml/evaluation/reports/
 evaluation/results/
-data/
 *.log
