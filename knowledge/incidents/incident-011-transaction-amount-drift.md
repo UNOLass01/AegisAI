@@ -11,7 +11,9 @@
 Why did precision drop? Precision dropped because legitimate
 `transaction_amount` values drifted +30% into the range the model associated
 with fraud, so ordinary purchases started scoring as fraud and false positives
-spiked. Retraining on the drifted data (v2) did not restore precision.
+spiked. Fraud-detection performance degraded right after the v2 deployment:
+precision fell 0.740 → 0.603 while the review queue grew. Retraining on the
+drifted data (v2) did not restore precision.
 
 ## Timeline
 

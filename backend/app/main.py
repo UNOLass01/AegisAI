@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.api.health import router as health_router
+from app.api.investigate import router as investigate_router
 from app.api.knowledge import router as knowledge_router
 from app.api.predict import router as predict_router
 from app.middleware import RequestLoggingMiddleware
@@ -53,6 +54,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(health_router)
 app.include_router(predict_router)
 app.include_router(knowledge_router)
+app.include_router(investigate_router)
 
 # Standard HTTP metrics (request count, latency histogram, status codes).
 Instrumentator().instrument(app).expose(app)

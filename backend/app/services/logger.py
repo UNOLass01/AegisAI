@@ -12,14 +12,28 @@ import json
 import logging
 import os
 import sys
+from collections import deque
 
 _CONFIGURED = False
+
+# In-process ring buffer of recent request records for the log-analysis tool.
+# Single uvicorn worker (default) => complete view; with multiple workers each
+# process sees only its own slice (documented limitation, fine for this scope).
+LOG_BUFFER_SIZE = int(os.getenv("LOG_BUFFER_SIZE", "2000"))
+log_buffer: deque = deque(maxlen=LOG_BUFFER_SIZE)
+
+
+def record_log_entry(entry: dict) -> None:
+    log_buffer.append(entry)
+
+
+def clear_log_buffer() -> None:
+    log_buffer.clear()
 
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:  # noqa: A003
         payload = {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -27,6 +41,9 @@ class JsonFormatter(logging.Formatter):
         extra = getattr(record, "extra_fields", None)
         if isinstance(extra, dict):
             payload.update(extra)
+        payload.setdefault(
+            "timestamp", datetime.datetime.now(datetime.timezone.utc).isoformat()
+        )
         return json.dumps(payload)
 
 
@@ -52,18 +69,16 @@ def log_request(
     latency_ms: float,
     model_version: str | None = None,
 ) -> None:
-    logger.info(
-        "request",
-        extra={
-            "extra_fields": {
-                "endpoint": endpoint,
-                "method": method,
-                "model_version": model_version,
-                "latency_ms": round(latency_ms, 3),
-                "status_code": status_code,
-            }
-        },
-    )
+    entry = {
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "endpoint": endpoint,
+        "method": method,
+        "model_version": model_version,
+        "latency_ms": round(latency_ms, 3),
+        "status_code": status_code,
+    }
+    record_log_entry(entry)
+    logger.info("request", extra={"extra_fields": entry})
 
 
 def log_prediction(

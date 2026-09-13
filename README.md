@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 4 — knowledge base + RAG live: Qdrant-backed semantic search over incidents/docs/experiments.
+> Phase 5 — investigation agent live: one LangGraph agent + 5 tools answers "why did v2 degrade?" with a grounded report.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -62,6 +62,30 @@ signature (recall −0.25). Reports live in `ml/evaluation/reports/model_<versio
 - `POST /predict` → `{"transaction_amount": 900, "merchant_category": "electronics", "hour_of_day": 3, "model_version": "v2"}` returns `is_fraud` + `fraud_probability`
 - `POST /knowledge/search` → `{"query": "why did precision drop", "k": 3}` returns ranked chunks with `source`, `incident_id`, `title`, `score`
 - `POST /knowledge/ingest` → (re)ingest the `knowledge/` corpus into Qdrant
+- `POST /investigate` → `{"query": "Why did fraud detection performance degrade after deployment v2?"}` runs the agent, persists the report, returns it
+
+## Investigation agent
+
+One LangGraph agent (`backend/app/agents/investigation_agent.py`), five tools
+(`backend/app/tools/`), fan-out evidence gathering → reason → report:
+
+| Tool | Source |
+|---|---|
+| `get_metrics` | Prometheus: precision/volume/latency per version, error share |
+| `analyze_logs` | structured JSON request logs (spike detection) |
+| `analyze_model` | offline report deltas vs previous version |
+| `search_knowledge` | RAG retriever (incident write-ups with attribution) |
+| `generate_report` | deterministic evidence assembly + narrative |
+
+Evidence is assembled from tool outputs in all modes (grounding by
+construction). Narrative reasoning uses `LLM_PROVIDER`: `openai`
+(OpenAI-compatible API), `ollama`, or `stub` — a deterministic
+evidence-based fallback used when no key is configured (and in tests).
+
+Example verdict for the v2 scenario: root cause "data drift in
+transaction_amount" at 0.91 confidence, citing offline deltas (precision
+0.74→0.60, FP 39→58), live Prometheus metrics, log findings, and Incident
+#011. Reports persist to the `investigations` table.
 
 ## Knowledge base & RAG
 
