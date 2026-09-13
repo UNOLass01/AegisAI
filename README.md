@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 3 — observability live: Prometheus + Grafana + structured JSON logs + incident simulator.
+> Phase 4 — knowledge base + RAG live: Qdrant-backed semantic search over incidents/docs/experiments.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -16,6 +16,7 @@ docker compose up --build
 - Postgres: `localhost:5432` (user/pass/db: `aegis`), migrations run automatically via Alembic.
 - Prometheus: http://localhost:9090 (scrapes `backend:8000/metrics` every 5s)
 - Grafana: http://localhost:3000 (admin/admin, anonymous viewer enabled) — "AegisAI Overview" dashboard
+- Qdrant: http://localhost:6333 (knowledge-base vectors; auto-ingested at backend startup)
 
 ## Simulate an incident
 
@@ -59,6 +60,32 @@ signature (recall −0.25). Reports live in `ml/evaluation/reports/model_<versio
 - `GET /health` → `{"status":"ok"}`
 - `GET /models` → all versions with metrics + artifact presence
 - `POST /predict` → `{"transaction_amount": 900, "merchant_category": "electronics", "hour_of_day": 3, "model_version": "v2"}` returns `is_fraud` + `fraud_probability`
+- `POST /knowledge/search` → `{"query": "why did precision drop", "k": 3}` returns ranked chunks with `source`, `incident_id`, `title`, `score`
+- `POST /knowledge/ingest` → (re)ingest the `knowledge/` corpus into Qdrant
+
+## Knowledge base & RAG
+
+Corpus in `knowledge/` (10 docs): model cards per version, deployment config,
+3 incident write-ups (#011 drift/FP spike, #014 labeling bug, #009 latency),
+and per-version experiment notes. Chunks carry filename + incident-id attribution.
+
+```bash
+# Manual ingest (auto-ingest also runs in the background at backend startup):
+python backend/app/rag/ingest.py
+```
+
+Embedding provider via `EMBEDDING_PROVIDER`: `local` (sentence-transformers
+MiniLM, default in docker), `openai` (needs `OPENAI_API_KEY`), or `hash`
+(deterministic fallback used by tests). Vector store via `QDRANT_URL`
+(docker: `http://qdrant:6333`; `:memory:` in tests). One Qdrant collection per
+provider, e.g. `aegis_knowledge_minilm-l6-v2`.
+
+Local semantic use needs CPU torch first (docker handles this automatically):
+
+```bash
+pip install --index-url https://download.pytorch.org/whl/cpu torch
+pip install -r backend/requirements-ml.txt
+```
 
 ## Useful commands
 

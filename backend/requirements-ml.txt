@@ -1,0 +1,6 @@
+# Heavy embedding deps, installed separately (docker + local GPU-less dev).
+# Install CPU torch FIRST from the PyTorch CPU index, then this file:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch
+#   pip install -r backend/requirements-ml.txt
+torch>=2.4
+sentence-transformers>=3.0
