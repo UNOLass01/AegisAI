@@ -4,10 +4,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 
 WORKDIR /code
 
-COPY requirements.txt .
+# Build context is the repo root (see docker-compose.yml).
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/alembic.ini ./alembic.ini
+COPY backend/alembic ./alembic
+COPY backend/app ./app
+COPY backend/tests ./tests
+# Model artifacts + reports so /predict and /models work out of the box.
+COPY ml ./ml
 
 EXPOSE 8000
 

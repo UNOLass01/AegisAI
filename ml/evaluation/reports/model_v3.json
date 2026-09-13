@@ -1,0 +1,14 @@
+{
+  "model_version": "v3",
+  "accuracy": 0.942,
+  "precision": 0.7931,
+  "recall": 0.4132,
+  "f1": 0.5433,
+  "true_positives": 69,
+  "false_positives": 18,
+  "true_negatives": 1815,
+  "false_negatives": 98,
+  "n_test": 2000,
+  "timestamp": "2026-09-13T09:47:04.308301+00:00",
+  "dataset_version": "synthetic-clean-v1"
+}
