@@ -87,6 +87,58 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "id": 7,
+      "title": "Agent step latency p95 by step",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, step) (rate(agent_step_duration_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{step}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Agent tool latency breakdown (avg s by step)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (step) (rate(agent_step_duration_seconds_sum[5m])) / sum by (step) (rate(agent_step_duration_seconds_count[5m]))",
+          "legendFormat": "avg {{step}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Agent token usage rate by direction",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum by (direction) (rate(agent_tokens_total[5m]))",
+          "legendFormat": "{{direction}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Agent estimated cost (cumulative USD)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(agent_cost_usd_total)",
+          "legendFormat": "USD",
+          "refId": "A"
+        }
+      ]
     }
   ],
   "schemaVersion": 39,

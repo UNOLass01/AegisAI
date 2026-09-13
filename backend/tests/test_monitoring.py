@@ -36,6 +36,9 @@ KNOWN_METRICS = {
     "aegis_predict_correct_total",
     "aegis_predict_flagged_total",
     "aegis_predict_true_positives_total",
+    "agent_step_duration_seconds",
+    "agent_tokens_total",
+    "agent_cost_usd_total",
 }
 
 
@@ -295,7 +298,8 @@ def _dashboard_exprs() -> list[str]:
 
 def test_dashboard_queries_reference_only_known_metrics():
     promql_keywords = {"sum", "by", "rate", "histogram_quantile", "or", "vector", "on"}
-    label_names = {"le", "handler", "model_version", "status", "method"}
+    label_names = {"le", "handler", "model_version", "status", "method",
+                   "step", "direction"}
     for expr in _dashboard_exprs():
         scrubbed = re.sub(r"\[[^\]]*\]", "", expr)  # range selectors like [2m]
         scrubbed = re.sub(r'"[^"]*"', "", scrubbed)  # matchers like status=~"5.."

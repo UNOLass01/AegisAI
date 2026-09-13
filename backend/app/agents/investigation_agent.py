@@ -17,6 +17,8 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents import llm as llm_module
 from app.agents.schemas import IncidentReport
+from app.agents.tracing import Timer, make_span
+from app.services.metrics import AGENT_COST, AGENT_STEP_DURATION, AGENT_TOKENS
 from app.tools import knowledge_search as knowledge_tool
 from app.tools import log_analysis as logs_tool
 from app.tools import model_analysis as model_tool
@@ -46,6 +48,7 @@ class InvestigationState(TypedDict, total=False):
     llm_reasoning: dict
     llm_usage: dict
     hypothesis_key: str
+    spans: Annotated[list[dict], operator.add]
     report: dict | None
 
 
@@ -59,7 +62,11 @@ def extract_versions(query: str) -> list[str]:
 
 
 def investigate_node(state: InvestigationState) -> dict:
-    return {"focus_versions": extract_versions(state.get("query", ""))}
+    timer = Timer()
+    focus = extract_versions(state.get("query", ""))
+    return {"focus_versions": focus,
+            "spans": [make_span("investigate", timer.started_at,
+                                timer.elapsed_ms())]}
 
 
 def _focus_version(state: InvestigationState) -> str | None:
@@ -69,21 +76,61 @@ def _focus_version(state: InvestigationState) -> str | None:
 
 
 def metrics_node(state: InvestigationState) -> dict:
-    return {"metrics": [metrics_tool.get_metrics(
-        model_version=_focus_version(state),
-        time_range=state.get("time_range"))]}
+    timer = Timer()
+    try:
+        result = metrics_tool.get_metrics(
+            model_version=_focus_version(state),
+            time_range=state.get("time_range"))
+        return {"metrics": [result],
+                "spans": [make_span("get_metrics", timer.started_at,
+                                    timer.elapsed_ms())]}
+    except Exception as exc:
+        return {"metrics": [{"tool": "get_metrics", "error": str(exc)}],
+                "spans": [make_span("get_metrics", timer.started_at,
+                                    timer.elapsed_ms(), status="error",
+                                    error=str(exc))]}
 
 
 def logs_node(state: InvestigationState) -> dict:
-    return {"logs": [logs_tool.analyze_logs(time_range=state.get("time_range"))]}
+    timer = Timer()
+    try:
+        result = logs_tool.analyze_logs(time_range=state.get("time_range"))
+        return {"logs": [result],
+                "spans": [make_span("analyze_logs", timer.started_at,
+                                    timer.elapsed_ms())]}
+    except Exception as exc:
+        return {"logs": [{"tool": "analyze_logs", "error": str(exc)}],
+                "spans": [make_span("analyze_logs", timer.started_at,
+                                    timer.elapsed_ms(), status="error",
+                                    error=str(exc))]}
 
 
 def model_node(state: InvestigationState) -> dict:
-    return {"model": [model_tool.analyze_model(version=_focus_version(state))]}
+    timer = Timer()
+    try:
+        result = model_tool.analyze_model(version=_focus_version(state))
+        return {"model": [result],
+                "spans": [make_span("analyze_model", timer.started_at,
+                                    timer.elapsed_ms())]}
+    except Exception as exc:
+        return {"model": [{"tool": "analyze_model", "error": str(exc)}],
+                "spans": [make_span("analyze_model", timer.started_at,
+                                    timer.elapsed_ms(), status="error",
+                                    error=str(exc))]}
 
 
 def knowledge_node(state: InvestigationState) -> dict:
-    return {"knowledge": [knowledge_tool.search_knowledge(state.get("query", ""))]}
+    timer = Timer()
+    try:
+        result = knowledge_tool.search_knowledge(state.get("query", ""))
+        return {"knowledge": [result],
+                "spans": [make_span("search_knowledge", timer.started_at,
+                                    timer.elapsed_ms())]}
+    except Exception as exc:
+        return {"knowledge": [{"tool": "search_knowledge", "error": str(exc)}],
+                "spans": [make_span("search_knowledge", timer.started_at,
+                                    timer.elapsed_ms(), status="error",
+                                    error=str(exc))]}
 
 
 def _validate_llm_reasoning(payload: object) -> dict:
@@ -109,10 +156,13 @@ def _validate_llm_reasoning(payload: object) -> dict:
 
 
 def reason_node(state: InvestigationState) -> dict:
+    timer = Timer()
     config = llm_module.resolve_llm()
     if config.kind == "stub":
         return {"llm_reasoning": {},
-                "llm_usage": dict(config.last_usage)}
+                "llm_usage": dict(config.last_usage),
+                "spans": [make_span("reason", timer.started_at,
+                                    timer.elapsed_ms(), model=config.model)]}
     tool_summary = {
         "metrics": (state.get("metrics") or [{}])[0],
         "logs": (state.get("logs") or [{}])[0],
@@ -126,13 +176,22 @@ def reason_node(state: InvestigationState) -> dict:
     ]
     try:
         payload = json.loads(llm_module.complete(config, messages, json_mode=True))
+        reasoning = _validate_llm_reasoning(payload)
     except Exception:
-        return {"llm_reasoning": {}, "llm_usage": dict(config.last_usage)}
-    return {"llm_reasoning": _validate_llm_reasoning(payload),
-            "llm_usage": dict(config.last_usage)}
+        reasoning = {}
+    usage = dict(config.last_usage)
+    return {"llm_reasoning": reasoning,
+            "llm_usage": usage,
+            "spans": [make_span("reason", timer.started_at, timer.elapsed_ms(),
+                                tokens_in=usage.get("prompt_tokens", 0),
+                                tokens_out=usage.get("completion_tokens", 0),
+                                model=config.model,
+                                status="ok" if reasoning else "error",
+                                error=None if reasoning else "llm failed; stub fallback")]}
 
 
 def report_node(state: InvestigationState) -> dict:
+    timer = Timer()
     findings = {
         "query": state.get("query", ""),
         "investigation_id": state.get("investigation_id", "unknown"),
@@ -146,7 +205,9 @@ def report_node(state: InvestigationState) -> dict:
     hypothesis_key, _, _, _ = report_tool.decide_root_cause(
         findings["model"], findings["metrics"],
         findings["logs"], findings["knowledge"])
-    return {"report": report.model_dump(), "hypothesis_key": hypothesis_key}
+    span = make_span("generate_report", timer.started_at, timer.elapsed_ms())
+    return {"report": report.model_dump(), "hypothesis_key": hypothesis_key,
+            "spans": [span]}
 
 
 def build_graph():
@@ -171,7 +232,8 @@ def build_graph():
 _GRAPH = None
 
 # Info about the most recent run (latency excluded — the harness times it).
-# Keys: hypothesis_key, llm_usage {llm_kind, prompt_tokens, completion_tokens}.
+# Keys: hypothesis_key, llm_usage {llm_kind, prompt_tokens, completion_tokens},
+# spans [{step, started_at, duration_ms, tokens_in/out, tokens, cost_usd, ...}].
 last_run_info: dict = {}
 
 
@@ -196,12 +258,29 @@ def run_investigation(query: str, time_range: str | None = None) -> IncidentRepo
         "llm_reasoning": {},
         "llm_usage": {},
         "hypothesis_key": "",
+        "spans": [],
         "report": None,
     }
     final = get_graph().invoke(initial)
+    spans = final.get("spans", [])
+    _observe_agent_metrics(spans)
     global last_run_info
     last_run_info = {
         "hypothesis_key": final.get("hypothesis_key", ""),
         "llm_usage": final.get("llm_usage") or {},
+        "spans": spans,
     }
     return IncidentReport(**final["report"])
+
+
+def _observe_agent_metrics(spans: list[dict]) -> None:
+    """Export per-step timings, token totals, and cost to Prometheus."""
+    tokens_in = sum(int(s.get("tokens_in", 0)) for s in spans)
+    tokens_out = sum(int(s.get("tokens_out", 0)) for s in spans)
+    for span in spans:
+        AGENT_STEP_DURATION.labels(step=span.get("step", "?")).observe(
+            float(span.get("duration_ms", 0.0)) / 1000.0)
+    # Unconditional incs so the series exist (as zeros) even for stub runs.
+    AGENT_TOKENS.labels(direction="in").inc(tokens_in)
+    AGENT_TOKENS.labels(direction="out").inc(tokens_out)
+    AGENT_COST.inc(round(sum(float(s.get("cost_usd", 0.0)) for s in spans), 6))

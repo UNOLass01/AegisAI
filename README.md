@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 6 — evaluation harness live: 18 scenarios score the agent 100% root-cause accuracy.
+> Phase 7 — agent observability live: every investigation records a 7-step trace (timings, tokens, cost) to Postgres, Prometheus, and Grafana.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -63,6 +63,7 @@ signature (recall −0.25). Reports live in `ml/evaluation/reports/model_<versio
 - `POST /knowledge/search` → `{"query": "why did precision drop", "k": 3}` returns ranked chunks with `source`, `incident_id`, `title`, `score`
 - `POST /knowledge/ingest` → (re)ingest the `knowledge/` corpus into Qdrant
 - `POST /investigate` → `{"query": "Why did fraud detection performance degrade after deployment v2?"}` runs the agent, persists the report, returns it
+- `GET /investigations/{id}/trace` → step-by-step timeline (step, duration_ms, tokens, cost_usd, timestamp) for one investigation
 - `GET /evaluation/latest` → latest harness scorecard (run the harness first)
 
 ## Evaluation harness
@@ -112,6 +113,17 @@ Example verdict for the v2 scenario: root cause "data drift in
 transaction_amount" at 0.91 confidence, citing offline deltas (precision
 0.74→0.60, FP 39→58), live Prometheus metrics, log findings, and Incident
 #011. Reports persist to the `investigations` table.
+
+## Agent tracing (Phase 7)
+
+Every graph node (`investigate`, 4 tools, `reason`, `generate_report`)
+records a span with duration, tokens in/out, and estimated USD cost
+(`backend/app/agents/tracing.py` pricing table). Spans persist to the
+`agent_traces` table (migration `0002`), export as
+`agent_step_duration_seconds` / `agent_tokens_total` / `agent_cost_usd_total`
+Prometheus metrics, and render in four Grafana panels (step p95, tool latency
+breakdown, token rate, cumulative cost). Fetch any timeline via
+`GET /investigations/{id}/trace`.
 
 ## Knowledge base & RAG
 

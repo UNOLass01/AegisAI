@@ -38,3 +38,17 @@ PREDICT_TRUE_POSITIVES = Counter(
     "Flagged predictions with caller-supplied ground truth true, by version.",
     ["model_version"],
 )
+AGENT_STEP_DURATION = Histogram(
+    "agent_step_duration_seconds",
+    "Investigation agent step latency in seconds, by step name.",
+    ["step"],
+)
+AGENT_TOKENS = Counter(
+    "agent_tokens_total",
+    "LLM tokens consumed by the investigation agent, by direction.",
+    ["direction"],
+)
+AGENT_COST = Counter(
+    "agent_cost_usd_total",
+    "Estimated cumulative LLM spend in USD from agent investigations.",
+)
