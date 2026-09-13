@@ -97,7 +97,10 @@ def decide_root_cause(model: dict, metrics: dict, logs: dict,
         scores["labeling_error"] += 2
         signals["labeling_error"].append("knowledge base matches Incident #014 (labels)")
     if latency_spike:
-        scores["infra_latency"] += 2
+        # Live production anomaly: weighs more than stale offline deltas so a
+        # measured in-window spike decides latency scenarios even when an old
+        # recall regression is also on record.
+        scores["infra_latency"] += 3
         signals["infra_latency"].append("log latency anomaly")
     if kb_top == "009":
         scores["infra_latency"] += 2
@@ -175,7 +178,8 @@ def _metrics_evidence(metrics: dict) -> EvidenceItem:
     volume = metrics.get("request_volume_by_version", {}) or {}
     if volume:
         parts.append("volume req/s " + ", ".join(
-            f"{v}={r:.2f}" for v, r in sorted(volume.items())))
+            f"{v}={r:.2f}" for v, r in sorted(volume.items())
+            if r is not None))
     latency = metrics.get("p95_latency_s_by_version", {}) or {}
     if latency:
         parts.append("p95 latency " + ", ".join(

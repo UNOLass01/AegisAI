@@ -1,0 +1,10 @@
+id: drift-01
+problem: "Why did fraud detection performance degrade after deployment v2?"
+injected_condition:
+  type: model_state
+  focus: v2
+expected_root_cause:
+  key: data_drift
+  keywords: [drift, transaction_amount, false positive, precision]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Plan deliverable query; offline v2-vs-v1 deltas carry the verdict."

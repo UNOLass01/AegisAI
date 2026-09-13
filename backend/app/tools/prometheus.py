@@ -109,5 +109,6 @@ def get_metrics(
         result["focus_version"] = model_version
         for key in ("precision_by_version", "request_volume_by_version",
                     "p95_latency_s_by_version"):
-            result[key] = {model_version: result[key].get(model_version)}
+            value = result[key].get(model_version)
+            result[key] = {model_version: value} if value is not None else {}
     return result

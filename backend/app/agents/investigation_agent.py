@@ -44,6 +44,8 @@ class InvestigationState(TypedDict, total=False):
     model: Annotated[list[dict], operator.add]
     knowledge: Annotated[list[dict], operator.add]
     llm_reasoning: dict
+    llm_usage: dict
+    hypothesis_key: str
     report: dict | None
 
 
@@ -61,8 +63,9 @@ def investigate_node(state: InvestigationState) -> dict:
 
 
 def _focus_version(state: InvestigationState) -> str | None:
+    # First mentioned version is the subject ("compare v3 against v2" -> v3).
     versions = state.get("focus_versions") or []
-    return versions[-1] if versions else None
+    return versions[0] if versions else None
 
 
 def metrics_node(state: InvestigationState) -> dict:
@@ -108,7 +111,8 @@ def _validate_llm_reasoning(payload: object) -> dict:
 def reason_node(state: InvestigationState) -> dict:
     config = llm_module.resolve_llm()
     if config.kind == "stub":
-        return {"llm_reasoning": {}}
+        return {"llm_reasoning": {},
+                "llm_usage": dict(config.last_usage)}
     tool_summary = {
         "metrics": (state.get("metrics") or [{}])[0],
         "logs": (state.get("logs") or [{}])[0],
@@ -120,8 +124,12 @@ def reason_node(state: InvestigationState) -> dict:
         {"role": "user", "content": json.dumps(
             {"query": state.get("query", ""), "tool_outputs": tool_summary})},
     ]
-    payload = llm_module.try_complete_json(config, messages)
-    return {"llm_reasoning": _validate_llm_reasoning(payload)}
+    try:
+        payload = json.loads(llm_module.complete(config, messages, json_mode=True))
+    except Exception:
+        return {"llm_reasoning": {}, "llm_usage": dict(config.last_usage)}
+    return {"llm_reasoning": _validate_llm_reasoning(payload),
+            "llm_usage": dict(config.last_usage)}
 
 
 def report_node(state: InvestigationState) -> dict:
@@ -135,7 +143,10 @@ def report_node(state: InvestigationState) -> dict:
         "llm_reasoning": state.get("llm_reasoning") or {},
     }
     report = report_tool.generate_report(findings)
-    return {"report": report.model_dump()}
+    hypothesis_key, _, _, _ = report_tool.decide_root_cause(
+        findings["model"], findings["metrics"],
+        findings["logs"], findings["knowledge"])
+    return {"report": report.model_dump(), "hypothesis_key": hypothesis_key}
 
 
 def build_graph():
@@ -159,6 +170,10 @@ def build_graph():
 
 _GRAPH = None
 
+# Info about the most recent run (latency excluded — the harness times it).
+# Keys: hypothesis_key, llm_usage {llm_kind, prompt_tokens, completion_tokens}.
+last_run_info: dict = {}
+
 
 def get_graph():
     global _GRAPH
@@ -179,7 +194,14 @@ def run_investigation(query: str, time_range: str | None = None) -> IncidentRepo
         "model": [],
         "knowledge": [],
         "llm_reasoning": {},
+        "llm_usage": {},
+        "hypothesis_key": "",
         "report": None,
     }
     final = get_graph().invoke(initial)
+    global last_run_info
+    last_run_info = {
+        "hypothesis_key": final.get("hypothesis_key", ""),
+        "llm_usage": final.get("llm_usage") or {},
+    }
     return IncidentReport(**final["report"])

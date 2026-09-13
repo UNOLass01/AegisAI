@@ -1,0 +1,10 @@
+id: drift-02
+problem: "Why did precision drop after we shipped v2?"
+injected_condition:
+  type: model_state
+  focus: v2
+expected_root_cause:
+  key: data_drift
+  keywords: [drift, transaction_amount, false positive, precision]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Short paraphrase of the acceptance query."

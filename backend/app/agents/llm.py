@@ -28,6 +28,8 @@ class LLMConfig:
         self.base_url = base_url
         self.api_key = api_key
         self.model = model
+        self.last_usage: dict = {"llm_kind": kind, "prompt_tokens": 0,
+                                 "completion_tokens": 0}
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"LLMConfig(kind={self.kind}, model={self.model})"
@@ -80,7 +82,19 @@ def complete(config: LLMConfig, messages: list[dict], json_mode: bool = False) -
         timeout=REQUEST_TIMEOUT_S,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
+    payload = resp.json()
+    content = payload["choices"][0]["message"]["content"]
+    usage = payload.get("usage") or {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    if prompt_tokens is None:
+        prompt_tokens = sum(len(m.get("content", "")) for m in messages) // 4
+    if completion_tokens is None:
+        completion_tokens = len(content) // 4
+    config.last_usage = {"llm_kind": config.kind,
+                         "prompt_tokens": int(prompt_tokens),
+                         "completion_tokens": int(completion_tokens)}
+    return content
 
 
 def try_complete_json(config: LLMConfig, messages: list[dict]) -> dict | None:

@@ -1,0 +1,10 @@
+id: labels-07
+problem: "Chargebacks rose after v3 went live. Why is the model missing fraud?"
+injected_condition:
+  type: model_state
+  focus: v3
+expected_root_cause:
+  key: labeling_error
+  keywords: [label, recall, false negative]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Business-impact phrasing of the recall collapse."

@@ -1,0 +1,11 @@
+id: latency-04
+problem: "Latency alerts are firing but accuracy looks fine. Diagnose."
+injected_condition:
+  type: log_spike
+  fast: {n: 20, latency_ms: 40.0, minutes_ago_start: 60, minutes_ago_end: 30}
+  slow: {n: 20, latency_ms: 500.0, minutes_ago_start: 15, minutes_ago_end: 0}
+expected_root_cause:
+  key: infra_latency
+  keywords: [latency, concurrency, infra]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Alert-driven query; accuracy-flat hint points away from ML causes."

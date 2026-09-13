@@ -1,0 +1,10 @@
+id: labels-06
+problem: "Compare v3 against v2 and explain the recall change."
+injected_condition:
+  type: model_state
+  focus: v3
+expected_root_cause:
+  key: labeling_error
+  keywords: [label, recall, false negative]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Explicit comparison; focus resolves to v3."

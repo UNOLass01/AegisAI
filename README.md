@@ -2,7 +2,7 @@
 
 AI-powered investigation agent for ML production incidents (fraud/anomaly detection).
 
-> Phase 5 — investigation agent live: one LangGraph agent + 5 tools answers "why did v2 degrade?" with a grounded report.
+> Phase 6 — evaluation harness live: 18 scenarios score the agent 100% root-cause accuracy.
 > See `AEGIS_AI_AGENT_PLAN.md` for the phased execution plan.
 
 ## Quickstart
@@ -63,6 +63,32 @@ signature (recall −0.25). Reports live in `ml/evaluation/reports/model_<versio
 - `POST /knowledge/search` → `{"query": "why did precision drop", "k": 3}` returns ranked chunks with `source`, `incident_id`, `title`, `score`
 - `POST /knowledge/ingest` → (re)ingest the `knowledge/` corpus into Qdrant
 - `POST /investigate` → `{"query": "Why did fraud detection performance degrade after deployment v2?"}` runs the agent, persists the report, returns it
+- `GET /evaluation/latest` → latest harness scorecard (run the harness first)
+
+## Evaluation harness
+
+18 scenarios in `evaluation/scenarios/` (7 drift, 7 labeling, 4 latency),
+each with problem, injected condition (log-spike seeding for latency cases),
+expected root cause + keywords, and expected tools. The harness
+(`evaluation/evaluation.py`) runs the agent per scenario and scores
+root-cause accuracy, tool selection, evidence grounding, report completeness,
+latency, and tokens → `evaluation/results/latest.json` + printed scorecard.
+
+```bash
+python evaluation/evaluation.py                                   # host run
+docker compose exec backend python evaluation/evaluation.py       # in-container (real embeddings)
+python evaluation/evaluation.py --limit 2                         # smoke subset
+```
+
+Latest scorecard (stub reasoning, 0 LLM tokens):
+
+| Metric | Score |
+|---|---|
+| Root cause accuracy | 100% (18/18) |
+| Evidence grounding | 100% |
+| Tool selection | 100% |
+| Report completeness | 100% |
+| Avg latency | 0.1s |
 
 ## Investigation agent
 
@@ -124,7 +150,7 @@ pip install -r backend/requirements-ml.txt
 - `backend/` — FastAPI app (`app/api`, `app/agents`, `app/tools`, `app/rag`, `app/services`, `app/models`) + `tests/`
 - `ml/` — training / evaluation / models + data dirs
 - `frontend/` — React (Vite) dashboard (`src/dashboard`, `src/investigations`, `src/components`)
-- `evaluation/` — scenario definitions + harness
+- `evaluation/` — 18 scenario definitions + harness runner + results
 - `monitoring/` — Prometheus + Grafana configs
 - `knowledge/` — incidents / documentation / experiments (RAG corpus)
 - `.github/workflows/` — CI

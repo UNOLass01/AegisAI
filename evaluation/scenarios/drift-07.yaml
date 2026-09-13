@@ -1,0 +1,10 @@
+id: drift-07
+problem: "v2 flags too many good customers. What is the root cause?"
+injected_condition:
+  type: model_state
+  focus: v2
+expected_root_cause:
+  key: data_drift
+  keywords: [drift, transaction_amount, false positive, precision]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Colloquial FP complaint."

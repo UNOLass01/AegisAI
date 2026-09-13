@@ -23,6 +23,8 @@ COPY monitoring ./monitoring
 COPY ml ./ml
 # RAG corpus (ingested into Qdrant at startup / via POST /knowledge/ingest).
 COPY knowledge ./knowledge
+# Evaluation harness (scenarios + runner; results volume not required).
+COPY evaluation ./evaluation
 
 EXPOSE 8000
 

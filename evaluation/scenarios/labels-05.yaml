@@ -1,0 +1,10 @@
+id: labels-05
+problem: "Did the labeling pipeline break training for v3?"
+injected_condition:
+  type: model_state
+  focus: v3
+expected_root_cause:
+  key: labeling_error
+  keywords: [label, recall, false negative]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Leading question; evidence should confirm it."

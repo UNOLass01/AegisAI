@@ -1,0 +1,10 @@
+id: labels-01
+problem: "Why is recall so low on v3?"
+injected_condition:
+  type: model_state
+  focus: v3
+expected_root_cause:
+  key: labeling_error
+  keywords: [label, recall, false negative]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Direct recall question on the label-noise version."

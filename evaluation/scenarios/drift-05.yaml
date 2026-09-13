@@ -1,0 +1,10 @@
+id: drift-05
+problem: "The review queue is full of legitimate purchases after the v2 rollout. Why?"
+injected_condition:
+  type: model_state
+  focus: v2
+expected_root_cause:
+  key: data_drift
+  keywords: [drift, transaction_amount, false positive, precision]
+expected_tools_used: [get_metrics, analyze_logs, analyze_model, search_knowledge]
+notes: "Business-symptom phrasing of the FP spike."

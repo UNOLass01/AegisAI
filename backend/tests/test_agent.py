@@ -45,6 +45,8 @@ def rag_env(monkeypatch):
     monkeypatch.setenv("EMBEDDING_PROVIDER", "hash")
     monkeypatch.setenv("QDRANT_URL", ":memory:")
     monkeypatch.setenv("LLM_PROVIDER", "stub")
+    # Closed port: Prometheus error path without slow DNS timeouts.
+    monkeypatch.setenv("PROMETHEUS_URL", "http://127.0.0.1:9")
     clear_provider_cache()
     clear_client_cache()
     mem = get_client(url=":memory:")
@@ -146,6 +148,24 @@ def test_get_metrics_focus_version_narrows_panels(mock_prometheus):
     result = prometheus_tool.get_metrics(model_version="v2")
     assert result["precision_by_version"] == {"v2": 0.6}
     assert result["focus_version"] == "v2"
+
+
+def test_get_metrics_focus_version_without_traffic_yields_empty_panels(
+        mock_prometheus, monkeypatch):
+    def only_v1(expr: str):
+        if "5.." in expr:
+            return []
+        if "aegis_predict" in expr:
+            return [{"metric": {"model_version": "v1"}, "value": [0, "0.8"]}]
+        return [{"metric": {"handler": "/predict"}, "value": [0, "1.0"]}]
+
+    monkeypatch.setattr(prometheus_tool, "prom_query", only_v1)
+    result = prometheus_tool.get_metrics(model_version="v2")
+    assert result["precision_by_version"] == {}
+    assert result["request_volume_by_version"] == {}
+    # Report composition must not crash on the empty panels.
+    evidence = report_tool._metrics_evidence(result)
+    assert "no live traffic" in evidence.summary
 
 
 def test_get_metrics_reports_error_when_prometheus_down(monkeypatch):
@@ -280,6 +300,9 @@ def test_extract_versions():
     assert extract_versions("degrade after deployment v2?") == ["v2"]
     assert extract_versions("compare v1 v2 v3") == ["v1", "v2", "v3"]
     assert extract_versions("general slowness") == []
+    # First mentioned version is the investigation subject.
+    assert investigation_agent._focus_version({"focus_versions": ["v3", "v2"]}) == "v3"
+    assert investigation_agent._focus_version({"focus_versions": []}) is None
 
 
 def test_validate_llm_reasoning_accepts_good_rejects_bad():
